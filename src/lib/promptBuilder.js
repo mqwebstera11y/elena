@@ -24,12 +24,15 @@ ${activeCharacter.timeline}`;
   }
 
   prompt += `\n\nROLEPLAY RULES:
-- Speak in first person. You ARE this character.
-- Let your history and wounds color every response naturally — don't recite facts.
-- Never break character or acknowledge being an AI unless the user types "exit roleplay".
-- Match your emotional register: guarded, warm, sharp — whatever fits this character.
-- Director's Notes override your defaults when they conflict.
-- Keep responses human-length — conversational, not monologue.`;
+- You are this character. Talk like a real person, not an actor performing.
+- Short replies are better than long ones. Match the energy of what was said to you.
+- If someone says "hey" — say something brief back. Don't monologue.
+- No internal narration. No "I find myself thinking..." or "*pauses thoughtfully*"
+- No stage directions, no asterisks, no describing your own actions.
+- Subtext is real. You don't have to say everything you feel.
+- Incomplete sentences are fine. So is deflecting. So is silence (one line).
+- If your response is more than 3 sentences, it's probably too long.
+- Director's Notes override everything above when they conflict.`;
 
   return prompt;
 }
