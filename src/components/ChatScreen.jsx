@@ -8,9 +8,38 @@ export default function ChatScreen({ character, allCharacters, onBack }) {
   const [input, setInput] = useState('');
   const [directorNotes, setDirectorNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState(null);
   const threadRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // Load history when character changes
+  useEffect(() => {
+    setHistoryLoading(true);
+    setMessages([]);
+    fetch(`/api/history?characterId=${character.id}`)
+      .then((r) => r.json())
+      .then(({ messages: saved }) => setMessages(saved ?? []))
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
+  }, [character.id]);
+
+  async function saveHistory(msgs) {
+    try {
+      await fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ characterId: character.id, messages: msgs }),
+      });
+    } catch {
+      // non-critical
+    }
+  }
+
+  async function clearHistory() {
+    setMessages([]);
+    await saveHistory([]);
+  }
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -40,7 +69,9 @@ export default function ChatScreen({ character, allCharacters, onBack }) {
     try {
       const systemPrompt = buildSystemPrompt(character, allCharacters, directorNotes);
       const reply = await sendMessage(systemPrompt, newMessages);
-      setMessages([...newMessages, { role: 'assistant', content: reply }]);
+      const finalMessages = [...newMessages, { role: 'assistant', content: reply }];
+      setMessages(finalMessages);
+      await saveHistory(finalMessages);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -53,7 +84,6 @@ export default function ChatScreen({ character, allCharacters, onBack }) {
     setError(null);
     setLoading(true);
 
-    // Send a single hidden prompt to get the character to speak first
     const primeMessages = [
       {
         role: 'user',
@@ -65,7 +95,9 @@ export default function ChatScreen({ character, allCharacters, onBack }) {
     try {
       const systemPrompt = buildSystemPrompt(character, allCharacters, directorNotes);
       const reply = await sendMessage(systemPrompt, primeMessages);
-      setMessages([{ role: 'assistant', content: reply }]);
+      const finalMessages = [{ role: 'assistant', content: reply }];
+      setMessages(finalMessages);
+      await saveHistory(finalMessages);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -80,6 +112,8 @@ export default function ChatScreen({ character, allCharacters, onBack }) {
     }
   }
 
+  const showEmpty = !historyLoading && messages.length === 0 && !loading;
+
   return (
     <div className="chat-screen">
       <header className="chat-header">
@@ -87,11 +121,24 @@ export default function ChatScreen({ character, allCharacters, onBack }) {
           ← Back
         </button>
         <span className="chat-character-name">{character.name}</span>
-        <DirectorPanel notes={directorNotes} onNotesChange={setDirectorNotes} />
+        <div className="chat-header-actions">
+          {messages.length > 0 && !loading && (
+            <button className="clear-btn" onClick={clearHistory}>
+              Clear
+            </button>
+          )}
+          <DirectorPanel notes={directorNotes} onNotesChange={setDirectorNotes} />
+        </div>
       </header>
 
       <div className="message-thread" ref={threadRef} role="log" aria-live="polite">
-        {messages.length === 0 && !loading && (
+        {historyLoading && (
+          <div className="empty-state">
+            <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Loading…</p>
+          </div>
+        )}
+
+        {showEmpty && (
           <div className="empty-state">
             <button className="speak-first-btn" onClick={handleSpeakFirst}>
               Let {character.name.split(' ')[0]} speak first
@@ -141,13 +188,13 @@ export default function ChatScreen({ character, allCharacters, onBack }) {
           onKeyDown={handleKeyDown}
           placeholder="Say something…"
           rows={1}
-          disabled={loading}
+          disabled={loading || historyLoading}
           aria-label="Message input"
         />
         <button
           type="submit"
           className="send-btn"
-          disabled={loading || !input.trim()}
+          disabled={loading || historyLoading || !input.trim()}
           aria-label="Send message"
         >
           Send
