@@ -4,39 +4,50 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { KV_REST_API_URL, KV_REST_API_TOKEN } = process.env;
+  // Accept credentials under either naming convention
+  const url =
+    process.env.KV_REST_API_URL ||
+    process.env.UPSTASH_REDIS_REST_URL;
+  const token =
+    process.env.KV_REST_API_TOKEN ||
+    process.env.UPSTASH_REDIS_REST_TOKEN;
 
-  // If KV is not configured, degrade gracefully
-  if (!KV_REST_API_URL || !KV_REST_API_TOKEN) {
+  // Degrade gracefully when KV is not configured
+  if (!url || !token) {
     if (req.method === 'GET') return res.json({ messages: [] });
     return res.json({ ok: true });
   }
 
-  const authHeaders = {
-    Authorization: `Bearer ${KV_REST_API_TOKEN}`,
-    'Content-Type': 'application/json',
-  };
+  // Use Upstash pipeline endpoint — unambiguously stores/retrieves Redis strings
+  async function kv(commands) {
+    const r = await fetch(`${url}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(commands),
+    });
+    return r.json();
+  }
 
   if (req.method === 'GET') {
     const { characterId } = req.query;
     if (!characterId) return res.status(400).json({ error: 'characterId required' });
 
-    const key = `char:${characterId}:messages`;
-    const r = await fetch(`${KV_REST_API_URL}/get/${key}`, { headers: authHeaders });
-    const { result } = await r.json();
-    return res.json({ messages: result ?? [] });
+    const [{ result }] = await kv([['GET', `char:${characterId}:messages`]]);
+    let messages = [];
+    if (result) {
+      try { messages = JSON.parse(result); } catch { /* corrupted value — start fresh */ }
+    }
+    return res.json({ messages });
   }
 
   if (req.method === 'POST') {
     const { characterId, messages } = req.body;
     if (!characterId) return res.status(400).json({ error: 'characterId required' });
 
-    const key = `char:${characterId}:messages`;
-    await fetch(`${KV_REST_API_URL}/set/${key}`, {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify(messages),
-    });
+    await kv([['SET', `char:${characterId}:messages`, JSON.stringify(messages)]]);
     return res.json({ ok: true });
   }
 
