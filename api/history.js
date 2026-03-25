@@ -4,20 +4,26 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { KV_REST_API_URL, KV_REST_API_TOKEN } = process.env;
+  // Accept credentials under either naming convention
+  const url =
+    process.env.KV_REST_API_URL ||
+    process.env.UPSTASH_REDIS_REST_URL;
+  const token =
+    process.env.KV_REST_API_TOKEN ||
+    process.env.UPSTASH_REDIS_REST_TOKEN;
 
   // Degrade gracefully when KV is not configured
-  if (!KV_REST_API_URL || !KV_REST_API_TOKEN) {
+  if (!url || !token) {
     if (req.method === 'GET') return res.json({ messages: [] });
     return res.json({ ok: true });
   }
 
   // Use Upstash pipeline endpoint — unambiguously stores/retrieves Redis strings
   async function kv(commands) {
-    const r = await fetch(`${KV_REST_API_URL}/pipeline`, {
+    const r = await fetch(`${url}/pipeline`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${KV_REST_API_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(commands),
