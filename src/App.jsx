@@ -191,6 +191,12 @@ export default function App() {
           letter-spacing: 0.02em;
         }
 
+        .chat-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
         /* ── Director Panel ─────────────────────────────── */
 
         .director-panel {
@@ -250,6 +256,26 @@ export default function App() {
         }
 
         .director-textarea::placeholder { color: var(--muted); }
+
+        /* ── Clear button ───────────────────────────────── */
+
+        .clear-btn {
+          background: none;
+          border: 1px solid var(--border);
+          color: var(--muted);
+          cursor: pointer;
+          font-size: 0.78rem;
+          padding: 0.4rem 0.75rem;
+          border-radius: 4px;
+          min-height: 44px;
+          font-family: var(--font);
+          transition: color 0.15s, border-color 0.15s;
+        }
+
+        .clear-btn:hover {
+          color: #d07070;
+          border-color: #5a2020;
+        }
 
         /* ── Message Thread ─────────────────────────────── */
 
